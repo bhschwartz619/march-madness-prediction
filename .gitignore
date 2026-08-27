@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project data
+data/raw/*
+data/processed/*
+
+# Keep data documentation
+!data/README.md
+
+# Generated figures
+figures/*
+
+# OS files
+.DS_Store
+Thumbs.db
