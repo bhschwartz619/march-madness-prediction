@@ -1,2 +1,348 @@
-# march-madness-prediction
-NCAA March Madness prediction model using team-level analytics, machine learning, and tournament simulation
+# NCAA March Madness Prediction & Monte Carlo Simulation
+
+An end-to-end machine learning project for predicting NCAA Men's Basketball Tournament outcomes and simulating the 2026 tournament.
+
+Developed for the 2026 Brandeis University School of Business and Economics Datathon, this project combines team-level performance metrics from multiple college basketball data sources, evaluates several classification models on historical NCAA Tournament games, and uses an interpretable logistic regression model to generate matchup win probabilities. Those probabilities are then used to predict the 2026 tournament bracket and run 10,000 Monte Carlo simulations to estimate each team's probability of advancing through each round.
+
+The project was awarded **first place** in the 2026 Brandeis Datathon.
+
+---
+
+## Project Overview
+
+March Madness presents an interesting predictive modeling problem because tournament outcomes depend on both overall team quality and how two teams compare in a specific matchup.
+
+The project was designed around three questions:
+
+1. Can historical team-level metrics be used to predict NCAA Tournament game outcomes?
+2. Which modeling approach provides the best balance of predictive performance and interpretability?
+3. How can matchup-level win probabilities be translated into tournament-level outcomes while accounting for uncertainty?
+
+The final workflow:
+
+- Integrates team performance data from multiple college basketball analytics sources
+- Constructs historical tournament games from team-level tournament records
+- Engineers matchup features as differences between Team 1 and Team 2
+- Compares logistic regression, random forest, and gradient boosting classifiers
+- Uses a chronological train/test split to evaluate performance on more recent tournaments
+- Generates a deterministic prediction of the 2026 tournament
+- Runs 10,000 Monte Carlo tournament simulations using model-estimated win probabilities
+
+---
+
+## Modeling Approach
+
+### 1. Team-Level Feature Engineering
+
+Team-level data is assembled from several sources covering different dimensions of team performance, including:
+
+- KenPom and Barttorvik ratings
+- Barttorvik away/neutral performance
+- EvanMiya ratings
+- RPPF ratings
+- Tournament résumé metrics
+- Shooting splits
+
+Team names are standardized across datasets before the sources are merged into a single team-level feature table.
+
+The resulting features capture areas such as:
+
+- Adjusted offensive and defensive efficiency
+- Overall team strength
+- Tempo
+- Shooting efficiency
+- Turnover and rebounding performance
+- Strength of schedule
+- Tournament résumé
+- Away and neutral-site performance
+
+---
+
+### 2. Historical Matchup Construction
+
+Historical NCAA Tournament data is transformed from team-level records into game-level matchups.
+
+Each game contains a Team 1 and Team 2, along with the corresponding tournament seeds and game outcome.
+
+Team-level metrics are then merged onto each side of the matchup.
+
+Rather than providing both teams' raw metrics separately to the model, the project constructs **difference features**:
+
+```text
+matchup_feature = Team 1 metric - Team 2 metric
+```
+
+For example:
+
+```text
+adjusted_efficiency_diff =
+    Team 1 adjusted efficiency
+    - Team 2 adjusted efficiency
+```
+
+This creates a natural representation of the relative advantage one team has over its opponent.
+
+---
+
+### 3. Chronological Model Evaluation
+
+To better approximate the real-world forecasting problem, tournament games are split chronologically rather than randomly.
+
+- **Training set:** tournaments before 2022
+- **Test set:** tournaments from 2022 onward
+
+This prevents future tournament games from being randomly mixed into the training data and provides a more realistic evaluation of how the model performs on unseen seasons.
+
+Three classification approaches were evaluated:
+
+| Model | Train Accuracy | Test Accuracy |
+|---|---:|---:|
+| Logistic Regression | 74.9% | **72.6%** |
+| Random Forest | 88.3% | **72.6%** |
+| Gradient Boosting | 94.3% | 68.7% |
+
+Logistic regression was selected as the primary model.
+
+Although random forest achieved the same test accuracy, logistic regression provided comparable out-of-sample performance with substantially less overfitting and greater interpretability. Gradient boosting achieved the highest training accuracy but performed worse on the test set.
+
+The logistic regression model therefore provided the strongest combination of:
+
+- Out-of-sample predictive performance
+- Generalization
+- Interpretability
+- Direct matchup win probabilities
+
+---
+
+## 2026 Tournament Prediction
+
+After model selection, the logistic regression model is retrained using the historical tournament dataset and applied to the 2026 field.
+
+For each matchup, the model estimates:
+
+```text
+P(Team 1 wins)
+```
+
+A deterministic bracket is then generated by advancing whichever team has a predicted win probability greater than 50%.
+
+### Predicted Final Four
+
+| Team | Seed |
+|---|---:|
+| Duke | 1 |
+| Houston | 2 |
+| Arizona | 1 |
+| Michigan | 1 |
+
+### Predicted Championship
+
+**Duke vs. Michigan**
+
+The model gives Duke approximately a **53.3%** probability of defeating Michigan in the championship matchup.
+
+### Predicted Champion
+
+**Duke**
+
+The deterministic bracket is useful for producing a single prediction, but it does not capture the uncertainty inherent in a single-elimination tournament. For that reason, the project also incorporates Monte Carlo simulation.
+
+---
+
+## Monte Carlo Tournament Simulation
+
+The model's matchup probabilities are used as inputs to **10,000 Monte Carlo simulations** of the entire 2026 NCAA Tournament.
+
+Instead of automatically advancing the team with the higher probability, each simulated game is treated as a probabilistic outcome.
+
+For example, if the model estimates:
+
+```text
+P(Duke wins) = 0.73
+```
+
+then Duke advances when a random draw falls below 0.73, while its opponent advances otherwise.
+
+This process is repeated for every game and every round of the tournament.
+
+Each simulated tournament therefore represents one possible realization of March Madness.
+
+Across 10,000 simulations, the project calculates each team's probability of:
+
+- Reaching the Round of 32
+- Reaching the Sweet 16
+- Reaching the Elite Eight
+- Reaching the Final Four
+- Reaching the championship game
+- Winning the national championship
+
+### Highest Championship Probabilities
+
+| Team | Final Four | Championship Game | Champion |
+|---|---:|---:|---:|
+| Duke | 58.3% | 37.8% | **24.9%** |
+| Michigan | 56.8% | 40.3% | **22.5%** |
+| Houston | 34.4% | 19.8% | **12.4%** |
+| Illinois | 31.1% | 16.7% | **9.1%** |
+| Arizona | 37.0% | 18.7% | **8.9%** |
+| Purdue | 24.7% | 10.2% | **3.4%** |
+| Connecticut | 17.7% | 7.0% | **3.0%** |
+| Iowa State | 15.2% | 7.4% | **2.7%** |
+| Arkansas | 17.0% | 6.7% | **2.4%** |
+| Florida | 14.6% | 5.3% | **2.0%** |
+
+The simulation highlights an important distinction between predicting the **most likely bracket** and estimating the **distribution of possible tournament outcomes**.
+
+Duke is the deterministic model's predicted champion, but wins only about one-quarter of simulated tournaments. Michigan also has a substantial championship probability despite losing to Duke in the deterministic championship prediction.
+
+---
+
+## Repository Structure
+
+```text
+march-madness-prediction/
+│
+├── data/
+│   ├── raw/                  # Downloaded source data (not tracked)
+│   ├── processed/            # Generated datasets/results (not tracked)
+│   ├── reference/            # Frozen reproducibility inputs
+│   │   └── 2026_round_of_64.csv
+│   └── README.md
+│
+├── figures/                  # Generated project visualizations
+├── notebooks/                # Exploratory and analytical notebooks
+├── reports/                  # Presentation/report materials
+│
+├── src/
+│   ├── data_processing/
+│   │   ├── update_mm_data.py
+│   │   ├── mm_dataclass.py
+│   │   └── data_audit.py
+│   │
+│   ├── features/
+│   │   ├── build_team_features.py
+│   │   └── build_tournament_games.py
+│   │
+│   └── modeling/
+│       ├── train_models.py
+│       ├── predict_tournament.py
+│       └── simulate_tournament.py
+│
+├── .gitignore
+└── README.md
+```
+
+---
+
+## Running the Project
+
+### 1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd march-madness-prediction
+```
+
+### 2. Install dependencies
+
+The project requires Python and the primary analytical packages used throughout the pipeline, including:
+
+```text
+pandas
+numpy
+scikit-learn
+kagglehub
+openpyxl
+```
+
+### 3. Download the source data
+
+```bash
+python -m src.data_processing.update_mm_data
+```
+
+The downloaded source files are stored under:
+
+```text
+data/raw/
+```
+
+Raw data is intentionally excluded from version control.
+
+### 4. Build and evaluate the models
+
+```bash
+python -m src.modeling.train_models
+```
+
+This constructs the historical modeling dataset and evaluates logistic regression, random forest, and gradient boosting.
+
+### 5. Generate the deterministic 2026 bracket
+
+```bash
+python -m src.modeling.predict_tournament
+```
+
+This predicts each tournament game using the logistic regression model and advances the team with the higher predicted win probability.
+
+### 6. Run the Monte Carlo simulation
+
+```bash
+python -m src.modeling.simulate_tournament
+```
+
+The simulation runs 10,000 tournaments and calculates advancement and championship probabilities for the 2026 field.
+
+Generated simulation results are written to:
+
+```text
+data/processed/mc_2026_summary.csv
+```
+
+---
+
+## Reproducibility
+
+The source tournament dataset can change as new information is added.
+
+To preserve the exact 2026 tournament field used for this project, the repository includes a frozen Round of 64 bracket:
+
+```text
+data/reference/2026_round_of_64.csv
+```
+
+The prediction and simulation pipelines use this snapshot when constructing the 2026 tournament bracket.
+
+Generated raw and processed datasets are excluded from version control, while the frozen tournament reference file is intentionally tracked.
+
+---
+
+## Key Takeaways
+
+This project demonstrates an end-to-end sports analytics workflow that goes beyond simply fitting a predictive model.
+
+The analysis combines:
+
+- Multi-source data integration and cleaning
+- Feature engineering
+- Matchup-based predictive modeling
+- Chronological model validation
+- Model comparison and selection
+- Probabilistic forecasting
+- Monte Carlo simulation
+- Translation of model outputs into an interpretable tournament forecast
+
+Most importantly, the simulation framework distinguishes between the **single most likely bracket** and the much broader range of outcomes that can occur in a high-variance, single-elimination tournament.
+
+---
+
+## Authors
+
+**Ben Schwartz**  
+M.S. Business Analytics, Brandeis University
+
+**Matthew Shrake**
+
+Developed for the **2026 Brandeis University School of Business and Economics Datathon**.
+
+**First Place — 2026 Brandeis Datathon**
